@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  poplin-postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "54325:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: poplin-store
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./seed_data.sql:/docker-entrypoint-initdb.d/seed_data.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  postgres_data: 
