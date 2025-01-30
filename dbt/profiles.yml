@@ -1,0 +1,6 @@
+default:
+  outputs:
+    duckdb:
+      type: duckdb
+      path: /dbt/output/analytics.duckdb
+  target: duckdb
