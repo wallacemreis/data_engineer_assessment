@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   poplin-postgres:
@@ -20,5 +20,93 @@ services:
       timeout: 10s
       retries: 5
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@poplin.co
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - poplin-postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+  duckdb_importer:
+    build:
+      context: ./importer
+    container_name: duckdb_importer
+    depends_on:
+      - poplin-postgres
+    volumes:
+      - ./analytics.duckdb:/app/analytics.duckdb
+    environment:
+      - PYTHONUNBUFFERED=1
+
+
+  dbt:
+    image: ghcr.io/dbt-labs/dbt-postgres:1.5.2
+    container_name: dbt-container
+    platform: linux/amd64
+    volumes:
+      - ./dbt/projects:/dbt/
+      - ./dbt/profiles.yml:/root/.dbt/profiles.yml
+      - ./analytics.duckdb:/dbt/output/analytics.duckdb
+    restart: on-failure
+    depends_on:
+      - poplin-postgres
+      - duckdb_importer
+    working_dir: /dbt
+    entrypoint: >
+      /bin/bash -c "
+      pip3 install 'dbt-duckdb==1.5.2' &&
+      dbt clean &&
+      dbt run
+      "
+
+  jupyter:
+    image: jupyter/pyspark-notebook:latest
+    container_name: jupyter
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+      GRANT_SUDO: "yes"
+    ports:
+      - "8888:8888"
+      - "4041:4041"
+      - "8050:8050"
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./analytics.duckdb:/home/jovyan/analytics.duckdb
+      - /tmp/jupyter:/tmp
+    depends_on:
+      - poplin-postgres
+    command: >
+      /bin/bash -c "
+      pip install duckdb jupyterlab-sql-editor==1.4.2 dash ipywidgets psycopg2-binary plotly &&
+      jupyter lab build &&
+      start-notebook.sh --NotebookApp.token=''
+      "
+
+  dash_app:
+    build:
+      context: ./dashboard
+    container_name: dash_dashboard
+    ports:
+      - "8051:8051"
+    depends_on:
+      duckdb_importer:
+        condition: service_completed_successfully
+      dbt:
+        condition: service_completed_successfully
+    volumes:
+      - ./dashboard:/app
+      - ./analytics.duckdb:/db/analytics.duckdb
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: on-failure
+    command: python app.py
+
 volumes:
-  postgres_data: 
+  postgres_data:
+  pgadmin_data:
