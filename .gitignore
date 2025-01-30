@@ -1,0 +1,22 @@
+# Ignore Python cache files
+*.pyc
+__pycache__/
+
+# Ignore pytest cache
+tests/.pytest_cache/
+.pytest_cache/
+
+# Ignore macOS-specific files
+.DS_Store
+__MACOSX/
+
+# Ignore Docker-related files (if not needed)
+*.log
+
+# Ignore Git metadata (for safety)
+.git/
+notebooks/.ipynb_checkpoints/
+venv/
+dbt/projects/target/
+dbt/projects/logs/
+dbt/.user.yml
